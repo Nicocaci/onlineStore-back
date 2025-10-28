@@ -65,8 +65,8 @@ class UserController {
                 secure: true,         // ⬅️ false en localhost
                 sameSite: 'none',       // ⬅️ Lax funciona bien en la mayoría de los casos sin requerir HTTPS
                 maxAge: 24 * 60 * 60 * 1000,
-                //path: '/',
-                //domain: '.digitalshopok.com'
+                path: '/',
+                domain: '.railway.app'
             });
 
 
@@ -84,8 +84,8 @@ class UserController {
             httpOnly: false,
             secure: true,
             sameSite: 'none',
-            //path: "/",
-            //domain: '.digitalshopok.com'
+            path: "/",
+            domain: '.railway.app'
         });
         res.status(200).json({ message: "Logout exitoso" });
     }

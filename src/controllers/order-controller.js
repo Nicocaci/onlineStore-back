@@ -14,6 +14,23 @@ class OrderController {
         try {
             const { cart, email } = req.body;
 
+            // 1️⃣ Guardamos temporalmente el carrito en DB
+            const ordenPrevia = await OrderService.crearOrden({
+                comprador: { email },
+                metodoPago: 'stripe',
+                productos: cart.map(item => ({
+                    productoId: item.product._id,
+                    nombre: item.product.nombre,
+                    cantidad: item.quantity,
+                    precioUnitario: item.product.precio,
+                    subtotal: item.product.precio * item.quantity,
+                })),
+                total: cart.reduce((acc, i) => acc + i.product.precio * i.quantity, 0),
+                fecha: new Date(),
+                estado: 'pendiente',
+            });
+
+            // 2️⃣ Generamos los line_items de Stripe
             const line_items = cart.map(item => ({
                 price_data: {
                     currency: 'usd',
@@ -25,11 +42,12 @@ class OrderController {
                                 ? [item.product.imagenes]
                                 : [],
                     },
-                    unit_amount: item.product.precio * 100, // en centavos
+                    unit_amount: item.product.precio * 100,
                 },
                 quantity: item.quantity,
             }));
 
+            // 3️⃣ Creamos la sesión de Stripe
             const session = await stripe.checkout.sessions.create({
                 payment_method_types: ['card'],
                 line_items,
@@ -37,9 +55,9 @@ class OrderController {
                 success_url: 'http://localhost:5173/gracias?session_id={CHECKOUT_SESSION_ID}',
                 cancel_url: 'http://localhost:5173/cancelado',
                 customer_email: email,
-                // 🔥 Guardamos el carrito como metadata
+                // ✅ Solo mandamos el ID de la orden
                 metadata: {
-                    cart: JSON.stringify(cart),
+                    orderId: ordenPrevia._id.toString(),
                 },
             });
 
@@ -50,10 +68,9 @@ class OrderController {
         }
     }
 
-    // Webhook para confirmar pago y guardar la orden
+    // ✅ Webhook Stripe
     async stripeWebhook(req, res) {
         let event;
-
         try {
             const sig = req.headers['stripe-signature'];
             event = stripe.webhooks.constructEvent(
@@ -68,31 +85,13 @@ class OrderController {
 
         if (event.type === 'checkout.session.completed') {
             const session = event.data.object;
+            const orderId = session.metadata.orderId; // ✅ Recuperamos el ID que enviamos
 
             try {
-                const cart = JSON.parse(session.metadata.cart || '[]');
-
-                const nuevaOrden = {
-                    comprador: {
-                        nombre: session.customer_details?.name || 'Sin nombre',
-                        email: session.customer_email,
-                    },
-                    metodoPago: 'stripe',
-                    productos: cart.map(item => ({
-                        productoId: item.product._id,
-                        nombre: item.product.nombre,
-                        cantidad: item.quantity,
-                        precioUnitario: item.product.precio,
-                        subtotal: item.product.precio * item.quantity,
-                    })),
-                    total: session.amount_total / 100,
-                    fecha: new Date(),
-                };
-
-                await OrderService.crearOrden(nuevaOrden);
-                console.log("✅ Orden guardada tras pago exitoso:", nuevaOrden);
+                await OrderService.actualizarEstado(orderId, 'pagada');
+                console.log(`✅ Orden ${orderId} marcada como pagada`);
             } catch (err) {
-                console.error("❌ Error al guardar orden desde webhook:", err);
+                console.error("❌ Error al actualizar orden:", err);
             }
         }
 
