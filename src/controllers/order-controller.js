@@ -52,8 +52,8 @@ class OrderController {
                 payment_method_types: ['card'],
                 line_items,
                 mode: 'payment',
-                success_url: 'http://localhost:5173/gracias?session_id={CHECKOUT_SESSION_ID}',
-                cancel_url: 'http://localhost:5173/cancelado',
+                success_url: 'https://onlinestore-front-production.up.railway.app/gracias?session_id={CHECKOUT_SESSION_ID}',
+                cancel_url: 'https://onlinestore-front-production.up.railway.app/cancelado',
                 customer_email: email,
                 // ✅ Solo mandamos el ID de la orden
                 metadata: {
