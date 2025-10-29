@@ -10,7 +10,7 @@ class UserController {
         try {
             const existeUsuario = await UserService.obtenerUnUsuario({ email });
             console.log(existeUsuario);
-            
+
             if (existeUsuario) {
                 return res.status(400).json({ message: 'El email ya esta registrado.' })
             }
@@ -18,8 +18,8 @@ class UserController {
             const hashPassword = bcrypt.hashSync(contraseña, 10);
 
             const nuevoCarrito = await CartService.newCart();
-            
-            
+
+
             const nuevoUsuario = await UserService.crearUsuario({
                 nombre,
                 apellido,
@@ -62,7 +62,8 @@ class UserController {
 
             res.cookie('access_token', token, {
                 httpOnly: false,
-                sameSite: 'none',       // ⬅️ Lax funciona bien en la mayoría de los casos sin requerir HTTPS
+                secure: true,
+                sameSite: 'none',
                 maxAge: 24 * 60 * 60 * 1000,
                 path: '/',
                 domain: '.railway.app'
@@ -104,21 +105,23 @@ class UserController {
     }
 
     async actualizarUsuario(req, res) {
-        const userId = req.params.id;
+        const userId = req.params.id.trim();
         const userData = req.body;
         try {
             const usuarioActualizado = await UserService.actualizarUsuario(userId, userData);
-            if (!usuarioActualizado) {
-                res.status(404).json({ message: "Usuario no encontrado" })
-            };
-            res.status(200).json({
+
+            return res.status(200).json({
                 message: "Usuario actualizado con éxito",
                 user: usuarioActualizado
-            })
+            });
         } catch (error) {
-            res.status(500).json({ message: 'Error al actualizar usuario: ' + error.message });
+            console.error("❌ Error al actualizar usuario:", error);
+            return res.status(500).json({ message: 'Error al actualizar usuario: ' + error.message });
         }
     }
+
+
+
 
     async obtenerUsuarios(req, res) {
         try {
