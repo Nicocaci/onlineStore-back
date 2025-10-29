@@ -12,9 +12,13 @@ class OrderController {
     // ✅ Crear sesión de Stripe (checkout)
     async crearOrden(req, res) {
         try {
-            const { cart, email } = req.body;
+            const { cart, email, cartId } = req.body;
 
-            // 1️⃣ Guardamos temporalmente el carrito en DB
+            if (!cartId) {
+                console.warn("⚠️ No se recibió cartId en el body, Stripe no podrá limpiar el carrito luego.");
+            }
+
+            // 1️⃣ Guardamos temporalmente el pedido
             const ordenPrevia = await OrderService.crearOrden({
                 comprador: { email },
                 metodoPago: 'stripe',
@@ -30,7 +34,7 @@ class OrderController {
                 estado: 'pendiente',
             });
 
-            // 2️⃣ Generamos los line_items de Stripe
+            // 2️⃣ Armamos los productos para Stripe
             const line_items = cart.map(item => ({
                 price_data: {
                     currency: 'usd',
@@ -55,9 +59,9 @@ class OrderController {
                 success_url: 'https://onlinestore-front-production.up.railway.app/gracias?session_id={CHECKOUT_SESSION_ID}',
                 cancel_url: 'https://onlinestore-front-production.up.railway.app/cancelado',
                 customer_email: email,
-                // ✅ Solo mandamos el ID de la orden
                 metadata: {
                     orderId: ordenPrevia._id.toString(),
+                    cartId: cartId || req.user?.cart?.toString() || "", // ✅ ya no queda como null
                 },
             });
 
@@ -85,19 +89,30 @@ class OrderController {
 
         if (event.type === 'checkout.session.completed') {
             const session = event.data.object;
-            const orderId = session.metadata.orderId; // ✅ Recuperamos el ID que enviamos
+            const orderId = session.metadata?.orderId;
+            const cartId = session.metadata?.cartId;
+
+            console.log("🧾 Metadata recibida:", session.metadata);
 
             try {
-                await OrderService.actualizarEstado(orderId, 'pagada');
-                console.log(`✅ Orden ${orderId} marcada como pagada`);
+                if (orderId) {
+                    await OrderService.actualizarEstado(orderId, 'pagada');
+                    console.log(`✅ Orden ${orderId} marcada como pagada`);
+                }
+
+                if (cartId && cartId !== "null" && cartId !== "") {
+                    await CartService.clearCartProducts(cartId);
+                    console.log(`🧹 Carrito ${cartId} vaciado`);
+                } else {
+                    console.warn("⚠️ No se vació el carrito porque cartId es inválido:", cartId);
+                }
             } catch (err) {
-                console.error("❌ Error al actualizar orden:", err);
+                console.error("❌ Error al actualizar orden o limpiar carrito:", err);
             }
         }
 
         res.status(200).json({ received: true });
     }
-
     // Obtener órdenes por usuario
     async obtenerOrdenesPorUsuarios(req, res) {
         try {

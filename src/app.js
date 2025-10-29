@@ -14,28 +14,40 @@ import checkRouter from "./routes/checkOut-router.js";
 dotnev.config();
 const app = express();
 const PORT = process.env.PORT || 8080;
-
+const allowedOrigins = [
+    "http://localhost:5173",
+    "https://onlinestore-front-production.up.railway.app",
+];
 mongoose.connect(process.env.MONGO_URL)
     .then(() => console.log("Conectado con MongoDB"))
     .catch(() => console.log("Error al conectar con MongoDB", err))
 
 
 //MiddleWare
-app.use(express.urlencoded({extended:true}));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.static("./src/public"));
 app.use('/uploads', express.static('uploads'));
 
-app.use(cors({
-    origin: //"http://localhost:5173",
-            "https://onlinestore-front-production.up.railway.app",
-    credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
-}));
+app.use(
+    cors({
+        origin: (origin, callback) => {
+            // Permitir requests sin origin (por ejemplo, Postman)
+            if (!origin) return callback(null, true);
+            if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            } else {
+                return callback(new Error("CORS no permitido por este dominio"));
+            }
+        },
+        credentials: true,
+        allowedHeaders: ["Content-Type", "Authorization"],
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    })
+);
 
-app.get("/", (req,res) => {
+app.get("/", (req, res) => {
     res.send("Estamos On")
 })
 app.use("/api/productos", productRouter);

@@ -62,7 +62,6 @@ class UserController {
 
             res.cookie('access_token', token, {
                 httpOnly: false,
-                secure: true,         // ⬅️ false en localhost
                 sameSite: 'none',       // ⬅️ Lax funciona bien en la mayoría de los casos sin requerir HTTPS
                 maxAge: 24 * 60 * 60 * 1000,
                 path: '/',
@@ -85,7 +84,7 @@ class UserController {
             secure: true,
             sameSite: 'none',
             path: "/",
-            domain: '.railway.app'
+            domain: 'railway.app'
         });
         res.status(200).json({ message: "Logout exitoso" });
     }
